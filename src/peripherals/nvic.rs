@@ -22,6 +22,10 @@ const IRQ_OFFSET: i32 = 16;
 pub mod irq {
     pub const PENDSV: i32 = -2;
     pub const SYSTICK: i32 = -1;
+    pub const SVCall: i32 = -5;
+    pub const TIM1_CC: i32 = 27;
+    pub const I2C1_EV: i32 = 31;
+    pub const RTC_ALARM: i32 = 41;
 }
 
 // This is all poorly implemented. If this is not making much sense, it might be

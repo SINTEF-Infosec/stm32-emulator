@@ -11,6 +11,8 @@ pub mod i2c;
 pub mod nvic;
 pub mod scb;
 pub mod sw_spi;
+pub mod rtc;
+pub mod tim;
 
 use rcc::*;
 use serde::Deserialize;
@@ -24,6 +26,8 @@ use i2c::*;
 use nvic::*;
 use scb::*;
 use sw_spi::*;
+use rtc::*;
+use tim::*;
 
 use std::{collections::{BTreeMap, VecDeque, HashMap}, cell::RefCell};
 use svd_parser::svd::{RegisterInfo, Device as SvdDevice};
@@ -59,7 +63,7 @@ impl Peripherals {
     pub fn register_peripheral(&mut self, name: String, base: u32, registers: &[RegisterInfo], ext_devices: &ExtDevices) {
         let p = GenericPeripheral::new(name.clone(), registers);
 
-        let (start, end) = (base, base+p.size());
+        let (start, end) = (base, base + p.size());
 
         trace!("Peripheral start=0x{:08x} end=0x{:08x} name={}", start, end, p.name());
 
@@ -74,16 +78,18 @@ impl Peripherals {
 
         let p = None
             .or_else(|| NvicWrapper::new(&name))
-            .or_else(||     SysTick::new(&name))
-            .or_else(||         Scb::new(&name))
-            .or_else(||        Gpio::new(&name))
-            .or_else(||       Usart::new(&name, ext_devices))
-            .or_else(||        Fsmc::new(&name, ext_devices))
-            .or_else(||         Rcc::new(&name))
-            .or_else(||         I2c::new(&name))
-            .or_else(||         Dma::new(&name))
-            .or_else(||         Spi::new(&name, ext_devices))
-        ;
+            .or_else(|| SysTick::new(&name))
+            .or_else(|| Scb::new(&name))
+            .or_else(|| Gpio::new(&name))
+            .or_else(|| Usart::new(&name, ext_devices))
+            .or_else(|| Fsmc::new(&name, ext_devices))
+            .or_else(|| Rcc::new(&name))
+            .or_else(|| I2c::new(&name))
+            .or_else(|| Dma::new(&name))
+            .or_else(|| Spi::new(&name, ext_devices))
+            .or_else(|| RTC::new(&name))
+            .or_else(|| TIM::new(&name))
+            ;
 
         if let Some(p) = p {
             self.peripherals.push(PeripheralSlot { start, end, peripheral: RefCell::new(p) });
@@ -103,18 +109,18 @@ impl Peripherals {
 
             for (p1, p2) in a.zip(b) {
                 assert!(p1.end < p2.start, "Overlapping register blocks between {} and {}",
-                    p1.peripheral.name(), p2.peripheral.name());
+                        p1.peripheral.name(), p2.peripheral.name());
             }
         }
     }
 
     pub fn from_svd(mut svd_device: SvdDevice, config: PeripheralsConfig, gpio: GpioPorts, ext_devices: &ExtDevices) -> Self {
-        let mut peripherals = Self { gpio: RefCell::new(gpio), .. Peripherals::default() };
+        let mut peripherals = Self { gpio: RefCell::new(gpio), ..Peripherals::default() };
 
         svd_device.peripherals.sort_by_key(|f| f.base_address);
         let svd_peripherals = svd_device.peripherals.iter()
             .map(|d| (d.name.to_string(), d))
-            .collect::<HashMap<_,_>>();
+            .collect::<HashMap<_, _>>();
 
         for p in &svd_device.peripherals {
             let name = &p.name;
@@ -168,7 +174,7 @@ impl Peripherals {
         if (0x4200_0000..0x4400_0000).contains(&addr) {
             //let old_addr = addr;
             let bit_number = (addr % 32) / 4;
-            let addr = 0x4000_0000 + (addr - 0x4200_0000)/32;
+            let addr = 0x4000_0000 + (addr - 0x4200_0000) / 32;
             //trace!("bitbanding: 0x{:08x} -> addr=0x{:08x} bit={}", old_addr, addr, bit_number);
             return Some((addr, bit_number as u8));
         } else {
@@ -179,7 +185,7 @@ impl Peripherals {
     fn is_register(addr: u32) -> bool {
         // this is avoiding the FSMC banks, essentially
         !
-        (0x6000_0000..0xA000_0000).contains(&addr)
+            (0x6000_0000..0xA000_0000).contains(&addr)
     }
 
     fn align_addr_4(addr: u32) -> (u32, u8) {
@@ -203,7 +209,7 @@ impl Peripherals {
         assert!(byte_offset + size <= 4);
 
         let value = if let Some(p) = Self::get_peripheral(&self.peripherals, addr) {
-            p.peripheral.borrow_mut().read(sys, addr - p.start) << (8*byte_offset)
+            p.peripheral.borrow_mut().read(sys, addr - p.start) << (8 * byte_offset)
         } else {
             0
         };
@@ -234,7 +240,7 @@ impl Peripherals {
 
         if byte_offset != 0 {
             let v = self.read(sys, addr, 4);
-            value = (value << 8*byte_offset) | (v & (0xFFFF_FFFF >> (32-8*byte_offset)));
+            value = (value << 8 * byte_offset) | (v & (0xFFFF_FFFF >> (32 - 8 * byte_offset)));
         }
 
         if let Some(p) = Self::get_peripheral(&self.peripherals, addr) {

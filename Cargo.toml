@@ -13,6 +13,7 @@ anyhow = "1"
 bytes = "1"
 serde = { version = "1.0", features = ["derive"]}
 serde_yaml = "0.8"
+udbserver = "0.1.0"
 
 svd-parser = "0.13"
 

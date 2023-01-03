@@ -113,7 +113,8 @@ impl Bank {
 
         trace!("{} data read at offset=0x{:08x} value=0x{:08x}", self.name, offset, v);
 
-        v
+        //v
+        0xaa55_aa55 // to see if we can get through that first check
     }
 
     fn write_data(&mut self, sys: &System, offset: u32, value: u32) {

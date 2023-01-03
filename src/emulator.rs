@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::{mem::MaybeUninit, sync::atomic::{AtomicU64, Ordering, AtomicBool}, cell::RefCell};
+use std::{mem::MaybeUninit, sync::atomic::{AtomicU64, Ordering, AtomicBool}, cell::RefCell, time};
 use svd_parser::svd::Device as SvdDevice;
 use unicorn_engine::{unicorn_const::{Arch, Mode, HookType, MemType}, Unicorn, RegisterARM};
 use crate::{config::Config, util::UniErr, Args, system::System, framebuffers::sdl_engine::{PUMP_EVENT_INST_INTERVAL, SDL}};
 use anyhow::{Context as _, Result, bail};
 use capstone::prelude::*;
+use sdl2::libc::sleep;
+use crate::peripherals::nvic::irq;
 
 #[repr(C)]
 struct VectorTable {
@@ -76,6 +78,9 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
     let mut uc = Unicorn::new(Arch::ARM, Mode::MCLASS | Mode::LITTLE_ENDIAN)
         .map_err(UniErr).context("Failed to initialize Unicorn instance")?;
 
+    //udbserver::udbserver(&mut uc, 1234, 0x0000_0000).expect("Failed to start udbserver");
+    //info!("GDB Server started");
+
     let vector_table_addr = config.cpu.vector_table;
 
     let (sys, framebuffers) = crate::system::prepare(&mut uc, config, svd_device)?;
@@ -106,8 +111,23 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
 
             let n = NUM_INSTRUCTIONS.fetch_add(1, Ordering::Acquire);
 
+            let dis_instr = disassemble_instruction(&diassembler, uc, pc);
             if trace_instructions {
-                info!("{}", disassemble_instruction(&diassembler, uc, pc));
+                info!("{}", dis_instr);
+            }
+
+            if dis_instr.contains("wfi") {
+                warn!("WFI DETECTED!");
+                std::thread::sleep(time::Duration::from_secs(2));
+                info!("Will raise interrupt now");
+                p.nvic.borrow_mut().set_intr_pending(irq::I2C1_EV);
+            }
+
+            if dis_instr.contains("svc") {
+                warn!("SuperVisor Call DETECTED!");
+                std::thread::sleep(time::Duration::from_secs(2));
+                info!("Will raise svc interrupt now");
+                p.nvic.borrow_mut().set_intr_pending(irq::SVCall);
             }
 
             if n % interrupt_period as u64 == 0 {
@@ -163,6 +183,7 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
                 }
                 3 => {
                     error!("intr_hook intno={:08x}", exception);
+                    std::process::exit(1);
                 }
                 _ => {
                     error!("intr_hook intno={:08x}", exception);

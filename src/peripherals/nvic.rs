@@ -12,6 +12,8 @@ pub struct Nvic {
     pub systick_period: Option<u32>,
     pub last_systick_trigger: u64,
 
+    vtor: u32, // Vector Table Offset Register
+
     // 128 different interrupts. Good enough for now
     pending: u128,
     in_interrupt: bool,
@@ -62,7 +64,7 @@ impl Nvic {
         }
     }
 
-   fn are_interrupts_disabled(sys: &System) -> bool {
+    fn are_interrupts_disabled(sys: &System) -> bool {
         let primask = sys.uc.borrow().reg_read(RegisterARM::PRIMASK).unwrap();
         primask != 0
     }
@@ -81,9 +83,9 @@ impl Nvic {
 
     fn read_vector_addr(sys: &System, vector_table_addr: u32, irq: i32) -> u32 {
         // 4 because of ptr size
-        let vaddr = vector_table_addr + 4*(IRQ_OFFSET + irq) as u32;
+        let vaddr = vector_table_addr + 4 * (IRQ_OFFSET + irq) as u32;
 
-        let mut vector = [0,0,0,0];
+        let mut vector = [0, 0, 0, 0];
         sys.uc.borrow().mem_read(vaddr as u64, &mut vector).unwrap();
         u32::from_le_bytes(vector)
     }
@@ -218,7 +220,7 @@ impl Nvic {
         let mut sp = uc.reg_read(sp_reg).unwrap();
 
         let mut pop_reg = |reg| {
-            let mut v = [0,0,0,0];
+            let mut v = [0, 0, 0, 0];
             uc.mem_read(sp, &mut v).expect("Invalid SP pointer during interrupt return");
             let v = u32::from_le_bytes(v);
             //trace!("pop sp=0x{:08x} {:5?}=0x{:08x}", sp, reg, v);
@@ -240,10 +242,29 @@ impl Nvic {
 
 impl Peripheral for Nvic {
     fn read(&mut self, _sys: &System, _offset: u32) -> u32 {
+        if _offset < 0xfff {
+            match _offset {
+                0xd08 => info!("System Control Read of VTOR"),
+                _ => warn!("System Control Read at {:08x}", _offset)
+            }
+            return 0;
+        }
+        warn!("NVIC READ at _offset {:08x}", _offset);
         0
     }
 
     fn write(&mut self, _sys: &System, _offset: u32, _value: u32) {
+        if _offset < 0xfff {
+            match _offset {
+                0xd08 => {
+                    info!("System Control WRITE of VTOR with value {:08x}", _value);
+                    self.vtor = _value;
+                },
+                _ => warn!("System Control Write at {:08x} with value {:08x}", _offset, _value)
+            }
+            return;
+        }
+        warn!("NVIC WRITE at _offset {:08x} with value {:08x}", _offset, _value);
     }
 }
 

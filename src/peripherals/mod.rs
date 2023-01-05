@@ -9,7 +9,6 @@ pub mod dma;
 pub mod fsmc;
 pub mod i2c;
 pub mod nvic;
-pub mod scb;
 pub mod sw_spi;
 pub mod rtc;
 pub mod tim;
@@ -24,7 +23,6 @@ use dma::*;
 use fsmc::*;
 use i2c::*;
 use nvic::*;
-use scb::*;
 use sw_spi::*;
 use rtc::*;
 use tim::*;
@@ -79,7 +77,6 @@ impl Peripherals {
         let p = None
             .or_else(|| NvicWrapper::new(&name))
             .or_else(|| SysTick::new(&name))
-            .or_else(|| Scb::new(&name))
             .or_else(|| Gpio::new(&name))
             .or_else(|| Usart::new(&name, ext_devices))
             .or_else(|| Fsmc::new(&name, ext_devices))

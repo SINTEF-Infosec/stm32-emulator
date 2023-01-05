@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::{mem::MaybeUninit, sync::atomic::{AtomicU64, Ordering, AtomicBool}, cell::RefCell, time};
+use std::{mem::MaybeUninit, sync::atomic::{AtomicU64, Ordering, AtomicBool}, cell::RefCell, time, fs, process};
+use std::collections::HashMap;
 use svd_parser::svd::Device as SvdDevice;
 use unicorn_engine::{unicorn_const::{Arch, Mode, HookType, MemType}, Unicorn, RegisterARM};
 use crate::{config::Config, util::UniErr, Args, system::System, framebuffers::sdl_engine::{PUMP_EVENT_INST_INTERVAL, SDL}};
 use anyhow::{Context as _, Result, bail};
+use capstone::arch::arm::ArchExtraMode;
 use capstone::prelude::*;
 use sdl2::libc::sleep;
 use crate::peripherals::nvic::irq;
+use csv::Reader;
 
 #[repr(C)]
 struct VectorTable {
@@ -49,7 +52,7 @@ fn disassemble_instruction(diassembler: &Capstone, uc: &Unicorn<()>, pc: u64) ->
         }
     }
 
-    return "??".to_string();
+    return format!("ERROR DISASSEMBLING: {:?}", instr)
 }
 
 pub fn dump_stack(uc: &mut Unicorn<()>, count: usize) {
@@ -78,8 +81,30 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
     let mut uc = Unicorn::new(Arch::ARM, Mode::MCLASS | Mode::LITTLE_ENDIAN)
         .map_err(UniErr).context("Failed to initialize Unicorn instance")?;
 
-    //udbserver::udbserver(&mut uc, 1234, 0x0000_0000).expect("Failed to start udbserver");
-    //info!("GDB Server started");
+    // Reading functions csv
+    /*let mut rdr = csv::Reader::from_path("/Users/guillaumebour/Desktop/functions.csv").unwrap();
+    let mut gh_functions = HashMap::new();
+    for result in rdr.records(){
+        // The iterator yields Result<StringRecord, Error>, so we check the
+        // error here.
+        match result {
+            Ok(record) => {
+                //let addr : u32 = record.get(1).unwrap().parse::<u32>().unwrap();
+                //let f_name = record.get(0).unwrap();
+                let f_name = String::from(record.get(0).unwrap());
+                let addr :u64 = match record.get(1) {
+                    Some(s) => u64::from_str_radix(s.trim_start_matches("0x"), 16).expect("unable to parse num"),
+                    None => 0
+                };
+                println!("0x{:08x} -> {:?}", addr, f_name);
+                gh_functions.insert(addr, f_name);
+            },
+            Err(err) => {
+                println!("error reading CSV from <stdin>: {}", err);
+                process::exit(1);
+            }
+        }
+    }*/
 
     let vector_table_addr = config.cpu.vector_table;
 
@@ -88,6 +113,7 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
     let diassembler = Capstone::new()
         .arm()
         .mode(arch::arm::ArchMode::Thumb)
+        .extra_mode(vec![ArchExtraMode::MClass].into_iter())
         .build()
         .expect("failed to initialize capstone");
 
@@ -109,6 +135,22 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
                 LAST_INSTRUCTION = (pc as u32, size as u8);
             }
 
+            /*match gh_functions.get(&pc) {
+                None => {}
+                Some(f_name) => {
+                    info!("------------ {:?} ---------------", f_name)
+                }
+            }*/
+            // match pc {
+            //     0x08000188 => info!("------------ ResetHandler Enter ---------------"),
+            //     0x08010000 => info!("------------ __main f1 Enter ---------------"),
+            //     0x08010004 => info!("------------ __main f2 Enter ---------------"),
+            //     0x08010e98 => info!("------------ SystemInit Enter ---------------"),
+            //     0x08010ee0 => info!("------------ SystemInit Exit ---------------"),
+            //     0x0802600a => info!("------------ maybe_BIO_create_System_task Enter ---------------"),
+            //     0x080260e6 => info!("------------ maybe_BIO_create_System_task Exit ---------------"),
+            //     _ => {}
+            // }
             let n = NUM_INSTRUCTIONS.fetch_add(1, Ordering::Acquire);
 
             let dis_instr = disassemble_instruction(&diassembler, uc, pc);

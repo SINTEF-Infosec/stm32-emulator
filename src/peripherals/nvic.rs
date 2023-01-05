@@ -7,10 +7,30 @@ use unicorn_engine::{RegisterARM, Unicorn};
 use crate::system::System;
 use super::Peripheral;
 
-#[derive(Default)]
+const BASE_OFFSET_INTERRUPT_PRIORITY_REGISTERS: u32 = 0x00000400;
+
+
+//#[derive(Default)]
 pub struct Nvic {
     pub systick_period: Option<u32>,
     pub last_systick_trigger: u64,
+
+    vtor: u32,          // Vector Table Offset Register
+    cpacr: u32,         // Coprocessor Access Control Register
+    ccr: u32,           // Configuration and Control Register
+    shpr1: u32,         // System Handler Priority Register 1
+    shpr2: u32,         // System Handler Priority Register 2
+    shpr3: u32,         // System Handler Priority Register 3
+    shcsr: u32,         // System Handler Control and State Register
+    iprs: [u32; 124],   // Interrupt Priority Registers
+    scr: u32,           // System Control Register
+    cfsr: u32,          // Configurable Fault Status Register
+    hfsr: u32,          // HardFault Status Register
+
+    mpu_ctrl: u32, // MPU Control Register
+    mpu_rnr: u32, // MPU Region Number Register
+    mpu_rbar: u32, // MPU Region Base Address Register
+    mpu_rasr: u32, // MPU Region Attribute and Size Register
 
     // 128 different interrupts. Good enough for now
     pending: u128,
@@ -27,6 +47,32 @@ pub mod irq {
 // This is all poorly implemented. If this is not making much sense, it might be
 // best to re-implement everything correctly. Right now, I'm just trying to get
 // the saturn firmware to work just well enough.
+
+impl Default for Nvic {
+    fn default() -> Self {
+        Self {
+            systick_period: None,
+            last_systick_trigger: 0,
+            vtor: 0x0000_0000,
+            cpacr: 0x22f2ffff, // All coprocessors available except CP15-CP12 and CP9-CP8
+            iprs: [0x0000_0000; 124],
+            ccr: 0x0000_0200, // STKALIGN is recommend to reset to 1 by arm (p. 605 architecture doc).
+            shpr1: 0x0000_0000,
+            shpr2: 0x0000_0000,
+            shpr3: 0x0000_0000,
+            shcsr: 0x0000_0000,
+            scr: 0x0000_0000,
+            cfsr: 0x0000_0000,
+            hfsr: 0x0000_0000,
+            mpu_ctrl: 0x0000_0000,
+            mpu_rnr: 0x0000_0000,
+            mpu_rbar: 0x0000_0000,
+            mpu_rasr: 0x0000_0000,
+            pending: 0,
+            in_interrupt: false,
+        }
+    }
+}
 
 impl Nvic {
     pub fn set_intr_pending(&mut self, irq: i32) {
@@ -58,7 +104,7 @@ impl Nvic {
         }
     }
 
-   fn are_interrupts_disabled(sys: &System) -> bool {
+    fn are_interrupts_disabled(sys: &System) -> bool {
         let primask = sys.uc.borrow().reg_read(RegisterARM::PRIMASK).unwrap();
         primask != 0
     }
@@ -77,9 +123,9 @@ impl Nvic {
 
     fn read_vector_addr(sys: &System, vector_table_addr: u32, irq: i32) -> u32 {
         // 4 because of ptr size
-        let vaddr = vector_table_addr + 4*(IRQ_OFFSET + irq) as u32;
+        let vaddr = vector_table_addr + 4 * (IRQ_OFFSET + irq) as u32;
 
-        let mut vector = [0,0,0,0];
+        let mut vector = [0, 0, 0, 0];
         sys.uc.borrow().mem_read(vaddr as u64, &mut vector).unwrap();
         u32::from_le_bytes(vector)
     }
@@ -214,7 +260,7 @@ impl Nvic {
         let mut sp = uc.reg_read(sp_reg).unwrap();
 
         let mut pop_reg = |reg| {
-            let mut v = [0,0,0,0];
+            let mut v = [0, 0, 0, 0];
             uc.mem_read(sp, &mut v).expect("Invalid SP pointer during interrupt return");
             let v = u32::from_le_bytes(v);
             //trace!("pop sp=0x{:08x} {:5?}=0x{:08x}", sp, reg, v);
@@ -236,10 +282,62 @@ impl Nvic {
 
 impl Peripheral for Nvic {
     fn read(&mut self, _sys: &System, _offset: u32) -> u32 {
-        0
+        // Interrupt Priority Registers
+        if _offset >= 0x400 && _offset < 0x5ec {
+            let idx = (_offset - BASE_OFFSET_INTERRUPT_PRIORITY_REGISTERS) / 4;
+            return self.iprs[idx as usize];
+        }
+
+        return match _offset {
+            0xd08 => self.vtor,
+            0xd88 => self.cpacr,
+            0xd14 => self.ccr,
+            0xd20 => self.shpr3,
+            0xd1c => self.shpr2,
+            0xd18 => self.shpr1,
+            0xd24 => self.shcsr,
+            0xd10 => self.scr,
+            0xd28 => self.cfsr,
+            0xd2c => self.hfsr,
+            0xd94 => self.mpu_ctrl,
+            0xd98 => self.mpu_rnr,
+            0xd9c => self.mpu_rbar,
+            0xda0 => self.mpu_rasr,
+            _ => {
+                error!("NYI - {} READ at offset = {:08x}", "NVIC", _offset);
+                std::process::exit(-1);
+            }
+        };
     }
 
     fn write(&mut self, _sys: &System, _offset: u32, _value: u32) {
+        // Interrupt Priority Registers
+        if _offset >= 0x400 && _offset < 0x5ec {
+            let idx = (_offset - BASE_OFFSET_INTERRUPT_PRIORITY_REGISTERS) / 4;
+            self.iprs[idx as usize] = _value;
+            return;
+        }
+
+        match _offset {
+            0xd08 => self.vtor = _value,
+            0xd88 => self.cpacr = _value,
+            0xd14 => self.ccr = _value,
+            0xd20 => self.shpr3 = _value,
+            0xd1c => self.shpr2 = _value,
+            0xd18 => self.shpr1 = _value,
+            0xd24 => self.shcsr = _value,
+            0xd10 => self.scr = _value,
+            0xd28 => self.cfsr = _value,
+            0xd2c => self.hfsr = _value,
+            0xd94 => self.mpu_ctrl = _value,
+            0xd98 => self.mpu_rnr = _value,
+            0xd9c => self.mpu_rbar = _value,
+            0xda0 => self.mpu_rasr = _value,
+            _ => {
+                error!("NYI - {} WRITE at offset = {:08x} with value = {:08x}", "NVIC", _offset, _value);
+                std::process::exit(-1);
+            }
+        }
     }
 }
 

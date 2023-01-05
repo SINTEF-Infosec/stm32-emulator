@@ -80,7 +80,7 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
 
     let (sys, framebuffers) = crate::system::prepare(&mut uc, config, svd_device)?;
 
-    let diassembler = Capstone::new()
+    let disassembler = Capstone::new()
         .arm()
         .mode(arch::arm::ArchMode::Thumb)
         .build()
@@ -107,7 +107,7 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
             let n = NUM_INSTRUCTIONS.fetch_add(1, Ordering::Acquire);
 
             if trace_instructions {
-                info!("{}", disassemble_instruction(&diassembler, uc, pc));
+                info!("{}", disassemble_instruction(&disassembler, uc, pc));
             }
 
             if n % interrupt_period as u64 == 0 {

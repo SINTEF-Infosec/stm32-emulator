@@ -5,6 +5,7 @@ use svd_parser::svd::Device as SvdDevice;
 use unicorn_engine::{unicorn_const::{Arch, Mode, HookType, MemType}, Unicorn, RegisterARM};
 use crate::{config::Config, util::UniErr, Args, system::System, framebuffers::sdl_engine::{PUMP_EVENT_INST_INTERVAL, SDL}};
 use anyhow::{Context as _, Result, bail};
+use capstone::arch::arm::ArchExtraMode;
 use capstone::prelude::*;
 
 #[repr(C)]
@@ -83,6 +84,7 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
     let disassembler = Capstone::new()
         .arm()
         .mode(arch::arm::ArchMode::Thumb)
+        .extra_mode(vec![ArchExtraMode::MClass].into_iter())
         .build()
         .expect("failed to initialize capstone");
 

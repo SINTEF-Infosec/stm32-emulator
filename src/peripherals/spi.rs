@@ -58,7 +58,10 @@ impl Peripheral for Spi {
 
                 v
             }
-            _ => 0
+            _ => {
+                error!("NYI - {} READ at offset = {:08x}", "SPI", offset);
+                std::process::exit(-1);
+            }
         }
     }
 
@@ -94,7 +97,10 @@ impl Peripheral for Spi {
                     trace!("{} write={:02x?}", self.name, v);
                 }
             }
-            _ => {}
+            _ => {
+                error!("NYI - {} WRITE at offset = {:08x} with value = {:08x}", "SPI", offset, value);
+                std::process::exit(-1);
+            }
         }
     }
 }

@@ -11,6 +11,10 @@ use super::Peripheral;
 pub struct Usart {
     pub name: String,
     pub ext_device: Option<Rc<RefCell<dyn ExtDevice<(), u8>>>>,
+
+    cr1: u32, // Control Register 1
+    cr2: u32, // Control Register 2
+    brr: u32, // USART_BRR
 }
 
 impl Usart {
@@ -48,7 +52,13 @@ impl Peripheral for Usart {
                 trace!("{} read={:02x}", self.name, v);
                 v
             }
-            _ => 0
+            0x0008 => self.brr,
+            0x000c => self.cr1,
+            0x0010 => self.cr2,
+            _ => {
+                error!("NYI - {} READ at offset = {:08x}", "USART"  , offset);
+                std::process::exit(-1);
+            }
         }
     }
 
@@ -62,7 +72,13 @@ impl Peripheral for Usart {
 
                 trace!("{} write={:02x}", self.name, value as u8);
             }
-            _ => {}
+            0x0008 => self.brr = value,
+            0x000c => self.cr1 = value,
+            0x0010 => self.cr2 = value,
+            _ => {
+                error!("NYI - {} WRITE at offset = {:08x} with value = {:08x}", "USART", offset, value);
+                std::process::exit(-1);
+            }
         }
     }
 }

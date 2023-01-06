@@ -38,7 +38,10 @@ impl Peripheral for I2c {
                 self.toggle = (self.toggle + 1) % 5;
                 if self.toggle & 1  != 0{ 0xFFFFFFFF } else { 0 }
             }
-            _ => 0
+            _ => {
+                error!("NYI - {} READ at offset = {:08x}", "I2C", offset);
+                std::process::exit(-1);
+            }
         }
     }
 
@@ -47,7 +50,10 @@ impl Peripheral for I2c {
             0x0010 => {
                 debug!("{} WRITE value=0x{:08x}", self.name, value);
             }
-            _ => {}
+            _ => {
+                error!("NYI - {} WRITE at offset = {:08x} with value = {:08x}", "I2C", offset, value);
+                std::process::exit(-1);
+            }
         }
     }
 }

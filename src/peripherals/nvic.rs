@@ -8,6 +8,7 @@ use crate::system::System;
 use super::Peripheral;
 
 const BASE_OFFSET_INTERRUPT_PRIORITY_REGISTERS: u32 = 0x00000400;
+const BASE_OFFSET_INTERRUPT_SET_ENABLE_REGISTERS: u32 = 0x00000100;
 
 
 //#[derive(Default)]
@@ -15,21 +16,42 @@ pub struct Nvic {
     pub systick_period: Option<u32>,
     pub last_systick_trigger: u64,
 
-    vtor: u32,          // Vector Table Offset Register
-    cpacr: u32,         // Coprocessor Access Control Register
-    ccr: u32,           // Configuration and Control Register
-    shpr1: u32,         // System Handler Priority Register 1
-    shpr2: u32,         // System Handler Priority Register 2
-    shpr3: u32,         // System Handler Priority Register 3
-    shcsr: u32,         // System Handler Control and State Register
-    iprs: [u32; 124],   // Interrupt Priority Registers
-    scr: u32,           // System Control Register
-    cfsr: u32,          // Configurable Fault Status Register
+    syst_rvr: u32,
+    // SysTick Reload Value Register
+    syst_cvr: u32,
+    // SysTick Current Value Register
+    syst_csr: u32,
+    // SysTick Control and Status Register,
+    vtor: u32,
+    // Vector Table Offset Register
+    cpacr: u32,
+    // Coprocessor Access Control Register
+    ccr: u32,
+    // Configuration and Control Register
+    shpr1: u32,
+    // System Handler Priority Register 1
+    shpr2: u32,
+    // System Handler Priority Register 2
+    shpr3: u32,
+    // System Handler Priority Register 3
+    shcsr: u32,
+    // System Handler Control and State Register
+    iprs: [u32; 124],
+    // Interrupt Priority Registers
+    iser: [u32; 16],
+    // Interrupt Set-Enable Registers
+    scr: u32,
+    // System Control Register
+    cfsr: u32,
+    // Configurable Fault Status Register
     hfsr: u32,          // HardFault Status Register
 
-    mpu_ctrl: u32, // MPU Control Register
-    mpu_rnr: u32, // MPU Region Number Register
-    mpu_rbar: u32, // MPU Region Base Address Register
+    mpu_ctrl: u32,
+    // MPU Control Register
+    mpu_rnr: u32,
+    // MPU Region Number Register
+    mpu_rbar: u32,
+    // MPU Region Base Address Register
     mpu_rasr: u32, // MPU Region Attribute and Size Register
 
     // 128 different interrupts. Good enough for now
@@ -53,9 +75,13 @@ impl Default for Nvic {
         Self {
             systick_period: None,
             last_systick_trigger: 0,
+            syst_rvr: 0x0000_0000,
+            syst_cvr: 0x0000_0000,
+            syst_csr: 0x0000_0000,
             vtor: 0x0000_0000,
             cpacr: 0x22f2ffff, // All coprocessors available except CP15-CP12 and CP9-CP8
             iprs: [0x0000_0000; 124],
+            iser: [0x0000_0000; 16],
             ccr: 0x0000_0200, // STKALIGN is recommend to reset to 1 by arm (p. 605 architecture doc).
             shpr1: 0x0000_0000,
             shpr2: 0x0000_0000,
@@ -288,7 +314,16 @@ impl Peripheral for Nvic {
             return self.iprs[idx as usize];
         }
 
+        // Interrupt Set-Enable Registers
+        if _offset > 0x100 && _offset < 0x13c {
+            let idx = (_offset - BASE_OFFSET_INTERRUPT_SET_ENABLE_REGISTERS) / 4;
+            return self.iser[idx as usize];
+        }
+
         return match _offset {
+            0x010 => self.syst_csr,
+            0x014 => self.syst_rvr,
+            0x018 => self.syst_cvr,
             0xd08 => self.vtor,
             0xd88 => self.cpacr,
             0xd14 => self.ccr,
@@ -318,7 +353,17 @@ impl Peripheral for Nvic {
             return;
         }
 
+        // Interrupt Set-Enable Registers
+        if _offset > 0x100 && _offset < 0x13c {
+            let idx = (_offset - BASE_OFFSET_INTERRUPT_SET_ENABLE_REGISTERS) / 4;
+            self.iser[idx as usize] = _value;
+            return;
+        }
+
         match _offset {
+            0x010 => self.syst_cvr = _value,
+            0x014 => self.syst_rvr = _value,
+            0x018 => self.syst_cvr = _value,
             0xd08 => self.vtor = _value,
             0xd88 => self.cpacr = _value,
             0xd14 => self.ccr = _value,

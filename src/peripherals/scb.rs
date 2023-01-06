@@ -19,7 +19,8 @@ impl Scb {
 
 impl Peripheral for Scb {
     fn read(&mut self, _sys: &System, _offset: u32) -> u32 {
-        0
+        error!("NYI - {} WRITE at offset = {}", "SCB", _offset);
+        std::process::exit(-1);
     }
 
     fn write(&mut self, sys: &System, offset: u32, value: u32) {
@@ -35,7 +36,10 @@ impl Peripheral for Scb {
                     sys.p.nvic.borrow_mut().set_intr_pending(irq::PENDSV);
                 }
             }
-            _ => {}
+            _ => {
+                error!("NYI - {} WRITE at offset = {:08x} with value = {:08x}", "SCB", offset, value);
+                std::process::exit(-1);
+            }
         }
     }
 }

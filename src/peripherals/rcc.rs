@@ -12,8 +12,14 @@ pub struct Rcc {
     // cr: u32, // RCC clock control register
     ppl_cfgr: u32,
     // RCC PLL configuration register
-    ahb1enr: u32, // AHB1 peripheral clock enable register
-    apb1rstr: u32, //RCC APB1 peripheral reset register
+    ahb1enr: u32,  // AHB1 peripheral clock enable register
+    apb1rstr: u32, // APB1 peripheral reset register
+
+    apb2enr: u32, // APB2 peripheral clock enable register
+    ahb3enr: u32, // AHB3 peripheral clock enable register
+
+    cir: u32, // RCC clock interrupt register
+    bdcr: u32, // BDCR
 }
 
 impl Rcc {
@@ -35,11 +41,15 @@ impl Peripheral for Rcc {
     fn read(&mut self, _sys: &System, offset: u32) -> u32 {
         match offset {
             0x0000 => 0x0f0f_ffff, // bypassed
-            0x0008 => self.cfgr,
             0x0004 => self.ppl_cfgr,
+            0x0008 => self.cfgr,
+            0x000c => self.cir,
             0x0020 => self.apb1rstr,
             0x0030 => self.ahb1enr,
             0x0040 => self.apb1enr,
+            0x0070 => self.bdcr,
+            0x0038 => self.ahb3enr,
+            0x0044 => self.apb2enr,
             0x0074 => 0xff00_0003, // bypassed
             _ => {
                 error!("NYI - {} READ at offset = {:08x}", "RCC", offset);
@@ -52,8 +62,10 @@ impl Peripheral for Rcc {
         match _offset {
             0x0000 => {} // Ignored as we bypass
             0x0074 => {} // Ignored as we bypass
+            0x000c => self.cir = _value,
             0x0004 => self.ppl_cfgr = _value,
             0x0020 => self.apb1rstr = _value,
+            0x0070 => self.bdcr = _value,
             0x0008 => {
                 if _value & (1 << 1) != 0 {
                     self.cfgr |= 0x8 // select PLL as source for the clock and clear system clock switch
@@ -63,6 +75,8 @@ impl Peripheral for Rcc {
             }
             0x0040 => self.apb1enr = _value,
             0x0030 => self.ahb1enr = _value,
+            0x0038 => self.ahb3enr = _value,
+            0x0044 => self.apb2enr = _value,
             _ => {
                 error!("NYI - {} WRITE at offset = {:08x} with value = {:08x}", "RCC", _offset, _value);
                 std::process::exit(-1);

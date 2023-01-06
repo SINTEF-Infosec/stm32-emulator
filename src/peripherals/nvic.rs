@@ -47,6 +47,9 @@ pub struct Nvic {
     hfsr: u32,
     // HardFault Status Register
     icsr: u32, // Interrupt Control and State Register
+    mmfar: u32, //MemManage Fault Address Register
+    bfar: u32, // BusFault Address Register
+    aircr: u32, // Application Interrupt and Reset Control Register
 
     mpu_ctrl: u32,
     // MPU Control Register
@@ -93,6 +96,9 @@ impl Default for Nvic {
             scr: 0x0000_0000,
             cfsr: 0x0000_0000,
             hfsr: 0x0000_0000,
+            mmfar: 0x0000_0000,
+            bfar: 0x0000_0000,
+            aircr: 0x000_0000,
             mpu_ctrl: 0x0000_0000,
             mpu_rnr: 0x0000_0000,
             mpu_rbar: 0x0000_0000,
@@ -338,6 +344,8 @@ impl Peripheral for Nvic {
             0xd10 => self.scr,
             0xd28 => self.cfsr,
             0xd2c => self.hfsr,
+            0xd34 => self.mmfar,
+            0xd38 => self.bfar,
             0xd94 => self.mpu_ctrl,
             0xd98 => self.mpu_rnr,
             0xd9c => self.mpu_rbar,
@@ -358,7 +366,7 @@ impl Peripheral for Nvic {
         }
 
         // Interrupt Set-Enable Registers
-        if _offset > 0x100 && _offset < 0x13c {
+        if _offset >= 0x100 && _offset < 0x13c {
             let idx = (_offset - BASE_OFFSET_INTERRUPT_SET_ENABLE_REGISTERS) / 4;
             self.iser[idx as usize] = _value;
             return;
@@ -383,6 +391,7 @@ impl Peripheral for Nvic {
             0xd98 => self.mpu_rnr = _value,
             0xd9c => self.mpu_rbar = _value,
             0xda0 => self.mpu_rasr = _value,
+            0xd0c => self.aircr = _value,
             _ => {
                 error!("NYI - {} WRITE at offset = {:08x} with value = {:08x}", "NVIC", _offset, _value);
                 std::process::exit(-1);

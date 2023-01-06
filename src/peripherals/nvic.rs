@@ -13,7 +13,7 @@ const BASE_OFFSET_INTERRUPT_SET_ENABLE_REGISTERS: u32 = 0x00000100;
 
 //#[derive(Default)]
 pub struct Nvic {
-    pub systick_period: Option<u32>,
+    pub systick_period: Option<u32>, // ToDo: check if should be updated when touching syst_xxxx
     pub last_systick_trigger: u64,
 
     syst_rvr: u32,
@@ -44,7 +44,9 @@ pub struct Nvic {
     // System Control Register
     cfsr: u32,
     // Configurable Fault Status Register
-    hfsr: u32,          // HardFault Status Register
+    hfsr: u32,
+    // HardFault Status Register
+    icsr: u32, // Interrupt Control and State Register
 
     mpu_ctrl: u32,
     // MPU Control Register
@@ -78,6 +80,7 @@ impl Default for Nvic {
             syst_rvr: 0x0000_0000,
             syst_cvr: 0x0000_0000,
             syst_csr: 0x0000_0000,
+            icsr: 0x0000_0000,
             vtor: 0x0000_0000,
             cpacr: 0x22f2ffff, // All coprocessors available except CP15-CP12 and CP9-CP8
             iprs: [0x0000_0000; 124],
@@ -326,6 +329,7 @@ impl Peripheral for Nvic {
             0x018 => self.syst_cvr,
             0xd08 => self.vtor,
             0xd88 => self.cpacr,
+            0xd04 => self.icsr,
             0xd14 => self.ccr,
             0xd20 => self.shpr3,
             0xd1c => self.shpr2,
@@ -364,6 +368,7 @@ impl Peripheral for Nvic {
             0x010 => self.syst_cvr = _value,
             0x014 => self.syst_rvr = _value,
             0x018 => self.syst_cvr = _value,
+            0xd04 => self.icsr = _value,
             0xd08 => self.vtor = _value,
             0xd88 => self.cpacr = _value,
             0xd14 => self.ccr = _value,

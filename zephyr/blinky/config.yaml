@@ -1,13 +1,15 @@
 cpu:
   svd: STM32F41x.svd
   vector_table: 0x08000000
+debug:
+  elf: zephyr.elf
 regions:
   #- name: NULL_forgiveness
   #  start: 0x00000000
   #  size: 4096
   - name: ROM
     start: 0x08000000
-    load: fw.bin
+    load: zephyr.bin
     size: 0x80000
   - name: RAM-CCM
     start: 0x10000000

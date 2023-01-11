@@ -15,6 +15,7 @@ use elf::note::Note;
 use elf::note::NoteGnuBuildId;
 use elf::section::SectionHeader;
 use sdl2::video::FullscreenType::True;
+use crate::config::Debug;
 
 #[repr(C)]
 struct VectorTable {
@@ -108,7 +109,10 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
     let mut uc = Unicorn::new(Arch::ARM, Mode::MCLASS | Mode::LITTLE_ENDIAN)
         .map_err(UniErr).context("Failed to initialize Unicorn instance")?;
 
-    let functions_map = load_map(config.debug.elf.clone());
+    let functions_map = match &config.debug {
+        None => HashMap::new(),
+        Some(debugCfg) => load_map(debugCfg.elf.clone())
+    };
     let vector_table_addr = config.cpu.vector_table;
 
     let (sys, framebuffers) = crate::system::prepare(&mut uc, config, svd_device)?;

@@ -30,7 +30,7 @@ pub struct Debug {
 #[derive(Debug, Deserialize)]
 pub struct Config {
    pub cpu: Cpu,
-   pub debug: Debug,
+   pub debug: Option<Debug>,
    pub regions: Vec<Region>,
    pub patches: Option<Vec<Patch>>,
    pub peripherals: Option<crate::peripherals::PeripheralsConfig>,

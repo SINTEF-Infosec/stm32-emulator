@@ -441,9 +441,7 @@ impl Peripheral for Nvic {
         // Systick
         if _offset >= 0x010 && _offset < 0x0fc {
             return match _offset {
-                0x010 => {
-                    self.syst_csr = _value;
-                },
+                0x010 => self.syst_csr = _value,
                 0x014 => self.syst_rvr = _value,
                 0x018 => self.syst_cvr = 0x0000_0000,
                 _ => {

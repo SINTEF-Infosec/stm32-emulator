@@ -13,6 +13,7 @@ pub struct SysTick {
 impl SysTick {
     pub fn new(name: &str) -> Option<Box<dyn Peripheral>> {
         if name == "STK" {
+            debug!("Passed here!");
             Some(Box::new(Self::default()))
         } else {
             None

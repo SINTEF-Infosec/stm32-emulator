@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::process;
 use std::sync::atomic::Ordering;
 
 use unicorn_engine::{RegisterARM, Unicorn};
+use crate::peripherals::nvic::irq::PENDSV;
 
 use crate::system::System;
 use super::Peripheral;
@@ -13,7 +15,8 @@ const BASE_OFFSET_INTERRUPT_SET_ENABLE_REGISTERS: u32 = 0x00000100;
 
 //#[derive(Default)]
 pub struct Nvic {
-    pub systick_period: Option<u32>, // ToDo: check if should be updated when touching syst_xxxx
+    pub systick_period: Option<u32>,
+    // ToDo: check if should be updated when touching syst_xxxx
     pub last_systick_trigger: u64,
 
     syst_rvr: u32,
@@ -46,9 +49,12 @@ pub struct Nvic {
     // Configurable Fault Status Register
     hfsr: u32,
     // HardFault Status Register
-    icsr: u32, // Interrupt Control and State Register
-    mmfar: u32, //MemManage Fault Address Register
-    bfar: u32, // BusFault Address Register
+    icsr: u32,
+    // Interrupt Control and State Register
+    mmfar: u32,
+    //MemManage Fault Address Register
+    bfar: u32,
+    // BusFault Address Register
     aircr: u32, // Application Interrupt and Reset Control Register
 
     mpu_ctrl: u32,
@@ -110,6 +116,40 @@ impl Default for Nvic {
 }
 
 impl Nvic {
+
+    pub fn is_intr_pending(&mut self) -> bool {
+        return self.pending != 0
+    }
+
+    fn systick_enabled(&mut self) -> bool {
+        return self.syst_csr & 1 != 0;
+    }
+
+    fn systick_tickint(&mut self) -> bool {
+        return self.syst_csr & 2 != 0;
+    }
+
+    pub fn tick(&mut self) {
+        if !self.systick_enabled() {
+            return;
+        }
+
+        if self.syst_cvr != 0 {
+            self.syst_cvr -= 1;
+            if self.syst_cvr == 0 {
+                // if it reaches 0 from 1, we need to reload and perhaps have systick pending
+                // and to set COUNTFLAG to 1
+                self.syst_cvr = self.syst_rvr;
+                if self.systick_tickint() {
+                    self.set_intr_pending(irq::SYSTICK);
+                }
+                self.syst_csr |= (1 << 16);
+            }
+        } else {
+            self.syst_cvr = self.syst_rvr;
+        }
+    }
+
     pub fn set_intr_pending(&mut self, irq: i32) {
         trace!("Set irq pending irq={}", irq);
         let bit = IRQ_OFFSET + irq;
@@ -118,7 +158,7 @@ impl Nvic {
     }
 
     pub fn get_and_clear_next_intr_pending(&mut self) -> Option<i32> {
-        if self.pending != 0 {
+        if self.is_intr_pending() {
             let bit = self.pending.trailing_zeros();
             self.pending &= !(1 << bit);
             let irq = (bit as i32) - IRQ_OFFSET;
@@ -129,31 +169,39 @@ impl Nvic {
     }
 
     pub fn maybe_set_systick_intr_pending(&mut self) {
-        if let Some(systick_period) = self.systick_period {
+        /*if let Some(systick_period) = self.systick_period {
             let n = crate::emulator::NUM_INSTRUCTIONS.load(Ordering::Relaxed);
             let delta_num_instructions = n - self.last_systick_trigger;
             if delta_num_instructions > (systick_period as u64) {
                 self.last_systick_trigger = n;
                 self.set_intr_pending(irq::SYSTICK);
             }
-        }
+        }*/
     }
 
     fn are_interrupts_disabled(sys: &System) -> bool {
         let primask = sys.uc.borrow().reg_read(RegisterARM::PRIMASK).unwrap();
-        primask != 0
+        //primask != 0;
+        false
     }
 
     pub fn run_pending_interrupts(&mut self, sys: &System, vector_table_addr: u32) {
-        self.maybe_set_systick_intr_pending();
+        //debug!("IN > run pending interrupts");
+
+        //self.maybe_set_systick_intr_pending();
 
         if Self::are_interrupts_disabled(sys) || self.in_interrupt {
+          //  debug!(" - interrupts disabled (is pending = {:?})", self.is_intr_pending());
+            //debug!("OUT > run pending interrupts");
             return;
         }
 
         if let Some(irq) = self.get_and_clear_next_intr_pending() {
+            //debug!("get and clear next intr pending = {:?}", irq);
             self.run_interrupt(sys, vector_table_addr, irq);
         }
+
+        //debug!("OUT > run pending interrupts");
     }
 
     fn read_vector_addr(sys: &System, vector_table_addr: u32, irq: i32) -> u32 {
@@ -329,10 +377,28 @@ impl Peripheral for Nvic {
             return self.iser[idx as usize];
         }
 
+        // Systick
+        if _offset >= 0x010 && _offset < 0x0fc {
+            return match _offset {
+                0x010 => {
+                    let ret = self.syst_csr;
+                    if self.syst_csr & (1 << 16) != 0{
+                        self.syst_csr ^= (1 << 16);
+                    }
+                    ret
+                },
+                0x014 => self.syst_rvr,
+                0x018 => {
+                    self.syst_cvr
+                },
+                _ => {
+                    error!("NYI - {} READ at offset = {:08x}", "SYSTICK", _offset);
+                    std::process::exit(-1);
+                }
+            };
+        }
+
         return match _offset {
-            0x010 => self.syst_csr,
-            0x014 => self.syst_rvr,
-            0x018 => self.syst_cvr,
             0xd08 => self.vtor,
             0xd88 => self.cpacr,
             0xd04 => self.icsr,
@@ -372,11 +438,33 @@ impl Peripheral for Nvic {
             return;
         }
 
+        // Systick
+        if _offset >= 0x010 && _offset < 0x0fc {
+            return match _offset {
+                0x010 => {
+                    self.syst_csr = _value;
+                },
+                0x014 => self.syst_rvr = _value,
+                0x018 => self.syst_cvr = 0x0000_0000,
+                _ => {
+                    error!("NYI - {} WRITE at offset = {:08x} with value {:08x}", "SYSTICK", _offset, _value);
+                    std::process::exit(-1);
+                }
+            };
+        }
+
         match _offset {
-            0x010 => self.syst_cvr = _value,
-            0x014 => self.syst_rvr = _value,
-            0x018 => self.syst_cvr = _value,
-            0xd04 => self.icsr = _value,
+            0xd04 => {
+                if _value & (1 << 28) != 0 {
+                    // Checking PENDSVSET (bit 28)
+                    self.set_intr_pending(PENDSV);
+                } else if _value & (1 << 27) != 0 {
+                    // Handled when running pending interrupts
+                } else {
+                    error!("Interrupt Control and state register: NYI value = 0x{:08x}", _value);
+                    process::exit(-1);
+                }
+            }
             0xd08 => self.vtor = _value,
             0xd88 => self.cpacr = _value,
             0xd14 => self.ccr = _value,

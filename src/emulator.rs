@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::{mem::MaybeUninit, sync::atomic::{AtomicU64, Ordering, AtomicBool}, cell::RefCell};
+use std::{mem::MaybeUninit, sync::atomic::{AtomicU64, Ordering, AtomicBool}, cell::RefCell, process};
 use std::collections::HashMap;
 use svd_parser::svd::Device as SvdDevice;
 use unicorn_engine::{unicorn_const::{Arch, Mode, HookType, MemType}, Unicorn, RegisterARM};
@@ -14,6 +14,7 @@ use elf::hash::sysv_hash;
 use elf::note::Note;
 use elf::note::NoteGnuBuildId;
 use elf::section::SectionHeader;
+use sdl2::video::FullscreenType::True;
 
 #[repr(C)]
 struct VectorTable {
@@ -139,14 +140,28 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
 
             let n = NUM_INSTRUCTIONS.fetch_add(1, Ordering::Acquire);
 
-            if trace_instructions {
-                info!("{}", disassemble_instruction(&disassembler, uc, pc));
-            }
-
             match functions_map.get(&(pc as u32)) {
                 None => {}
                 Some(symbol_name) => {
-                    debug!("----------------- {} ------------------", symbol_name);
+                    trace!("----------------- {} ------------------", symbol_name);
+                }
+            }
+
+            let current_instruction = disassemble_instruction(&disassembler, uc, pc);
+            if trace_instructions {
+                info!("{}", current_instruction);
+            }
+
+
+            // if we reached wfi, we need to tick until a new exception is raised
+            if current_instruction.contains("wfi") {
+                loop {
+                    p.nvic.borrow_mut().tick();
+                    if p.nvic.borrow_mut().is_intr_pending() {
+                        let sys = System { uc: RefCell::new(uc), p: p.clone(), d: d.clone() };
+                        p.nvic.borrow_mut().run_pending_interrupts(&sys, vector_table_addr);
+                        break;
+                    }
                 }
             }
 
@@ -164,6 +179,9 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
                     uc.emu_stop().unwrap();
                 }
             }
+
+            p.nvic.borrow_mut().tick();
+
         }).expect("add_code_hook failed");
     }
 

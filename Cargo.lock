@@ -151,6 +151,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "elf"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6de42b0529467fc9a2692fd91585c84dd255fb15b0df0f80299724a9456986c6"
+
+[[package]]
 name = "env_logger"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -462,6 +468,7 @@ dependencies = [
  "capstone",
  "clap",
  "clap-num",
+ "elf",
  "env_logger",
  "lazy_static",
  "log",

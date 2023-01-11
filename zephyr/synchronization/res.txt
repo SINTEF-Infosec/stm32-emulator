@@ -1,0 +1,194 @@
+".exc_vector_table._vector_table_section"
+Will parse: "0000000008000000"
+08000000
+".gnu.linkonce.irq_vector_table"
+Will parse: "0000000008000040"
+08000040
+".text"
+Will parse: "0000000008000198"
+08000198
+".text"
+Will parse: "00000000080001c8"
+080001c8
+".text"
+Will parse: "00000000080001cc"
+080001cc
+".text.helloLoop"
+Will parse: "000000000800046c"
+0800046c
+".text.threadB"
+Will parse: "00000000080004d0"
+080004d0
+".text.threadA"
+Will parse: "00000000080004e8"
+080004e8
+".text.main"
+Will parse: "0000000008000500"
+08000500
+".text.char_out"
+Will parse: "0000000008000590"
+08000590
+".text.__printk_hook_install"
+Will parse: "000000000800059c"
+0800059c
+".text.vprintk"
+Will parse: "00000000080005a8"
+080005a8
+".text.z_cbvprintf_impl"
+Will parse: "00000000080005c4"
+080005c4
+".text.st_stm32f4_init"
+Will parse: "0000000008000d28"
+08000d28
+".text.z_arm_cpu_idle_init"
+Will parse: "0000000008000d68"
+08000d68
+".text.arch_cpu_idle"
+Will parse: "0000000008000d74"
+08000d74
+".text.arch_irq_enable"
+Will parse: "0000000008000d90"
+08000d90
+".text.z_arm_irq_priority_set"
+Will parse: "0000000008000dac"
+08000dac
+".text.z_SysNmiOnReset"
+Will parse: "0000000008000ddc"
+08000ddc
+".text.z_arm_prep_c"
+Will parse: "0000000008000de4"
+08000de4
+".text.arch_swap"
+Will parse: "0000000008000e2c"
+08000e2c
+".text.z_arm_pendsv"
+Will parse: "0000000008000e64"
+08000e64
+".text.z_arm_svc"
+Will parse: "0000000008000ebc"
+08000ebc
+".text.arch_new_thread"
+Will parse: "0000000008000edc"
+08000edc
+".text.z_check_thread_stack_fail"
+Will parse: "0000000008000f14"
+08000f14
+".text.arch_switch_to_main_thread"
+Will parse: "0000000008000f44"
+08000f44
+".text._isr_wrapper"
+Will parse: "0000000008000f70"
+08000f70
+".text._HandlerModeExit"
+Will parse: "0000000008000f98"
+08000f98
+".text.mem_manage_fault"
+Will parse: "0000000008000fb4"
+08000fb4
+".text.bus_fault.constprop.0"
+Will parse: "0000000008001030"
+08001030
+".text.z_arm_fault"
+Will parse: "000000000800106c"
+0800106c
+".text.z_arm_fault_init"
+Will parse: "000000000800119c"
+0800119c
+".text.__fault"
+Will parse: "00000000080011ac"
+080011ac
+".text.z_arm_interrupt_init"
+Will parse: "00000000080011c0"
+080011c0
+".text._reset_section"
+Will parse: "00000000080011d8"
+080011d8
+".text.z_impl_k_thread_abort"
+Will parse: "0000000008001204"
+08001204
+".text.z_arm_configure_static_mpu_regions"
+Will parse: "0000000008001230"
+08001230
+".text.z_arm_configure_dynamic_mpu_regions"
+Will parse: "0000000008001248"
+08001248
+".text.mpu_configure_regions"
+Will parse: "000000000800126c"
+0800126c
+".text.arm_core_mpu_enable"
+Will parse: "00000000080012f4"
+080012f4
+".text.arm_core_mpu_disable"
+Will parse: "000000000800130c"
+0800130c
+".text.arm_core_mpu_configure_static_mpu_regions"
+Will parse: "0000000008001320"
+08001320
+".text.arm_core_mpu_configure_dynamic_mpu_regions"
+Will parse: "0000000008001334"
+08001334
+".text.z_arm_mpu_init"
+Will parse: "0000000008001364"
+08001364
+".text.__stdout_hook_install"
+Will parse: "00000000080013c4"
+080013c4
+".text.__stm32_exti_isr.isra.0"
+Will parse: "00000000080013d0"
+080013d0
+".text.stm32_exti_enable"
+Will parse: "0000000008001410"
+08001410
+".text.stm32_exti_disable"
+Will parse: "000000000800142c"
+0800142c
+".text.stm32_exti_trigger"
+Will parse: "0000000008001444"
+08001444
+".text.stm32_exti_set_callback"
+Will parse: "00000000080014a4"
+080014a4
+".text.stm32_exti_unset_callback"
+Will parse: "00000000080014c8"
+080014c8
+".text.stm32_clock_control_get_subsys_rate"
+Will parse: "00000000080014dc"
+080014dc
+".text.stm32_clock_control_init"
+Will parse: "0000000008001568"
+08001568
+".text.get_pllsrc_frequency"
+Will parse: "0000000008001674"
+08001674
+".text.config_pll_sysclock"
+Will parse: "000000000800167c"
+0800167c
+".text.config_enable_default_clocks"
+Will parse: "00000000080016a0"
+080016a0
+".text.uart_console_init"
+Will parse: "00000000080016c0"
+080016c0
+".text.console_out"
+Will parse: "00000000080016e8"
+080016e8
+".text.gpio_stm32_init"
+Will parse: "0000000008001710"
+08001710
+".text.gpio_stm32_pin_interrupt_configure"
+Will parse: "0000000008001740"
+08001740
+".text.uart_stm32_irq_err_enable"
+Will parse: "0000000008001844"
+08001844
+".text.uart_stm32_irq_err_disable"
+Will parse: "00000000080018a0"
+080018a0
+".text.uart_stm32_init"
+Will parse: "00000000080018fc"
+080018fc
+".text.uart_stm32_configure"
+Will parse: "00000000080019f4"
+080019f4
+".text.elapsed"
+Will parse: ".text.sys_clock_driver_init"

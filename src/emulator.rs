@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use std::{mem::MaybeUninit, sync::atomic::{AtomicU64, Ordering, AtomicBool}, cell::RefCell};
+use std::collections::HashMap;
 use svd_parser::svd::Device as SvdDevice;
 use unicorn_engine::{unicorn_const::{Arch, Mode, HookType, MemType}, Unicorn, RegisterARM};
 use crate::{config::Config, util::UniErr, Args, system::System, framebuffers::sdl_engine::{PUMP_EVENT_INST_INTERVAL, SDL}};
 use anyhow::{Context as _, Result, bail};
 use capstone::arch::arm::ArchExtraMode;
 use capstone::prelude::*;
+use elf::ElfBytes;
+use elf::endian::AnyEndian;
+use elf::hash::sysv_hash;
+use elf::note::Note;
+use elf::note::NoteGnuBuildId;
+use elf::section::SectionHeader;
 
 #[repr(C)]
 struct VectorTable {
@@ -30,7 +37,7 @@ fn thumb(pc: u64) -> u64 {
 }
 
 // PC + instruction size
-pub static mut LAST_INSTRUCTION: (u32, u8) = (0,0);
+pub static mut LAST_INSTRUCTION: (u32, u8) = (0, 0);
 pub static NUM_INSTRUCTIONS: AtomicU64 = AtomicU64::new(0);
 static CONTINUE_EXECUTION: AtomicBool = AtomicBool::new(false);
 static BUSY_LOOP_REACHED: AtomicBool = AtomicBool::new(false);
@@ -55,7 +62,7 @@ pub fn dump_stack(uc: &mut Unicorn<()>, count: usize) {
     let mut sp = uc.reg_read(RegisterARM::SP).unwrap();
 
     for _ in 0..count {
-        let mut v = [0,0,0,0];
+        let mut v = [0, 0, 0, 0];
         if uc.mem_read(sp, &mut v).is_err() {
             info!("stack dump finished due to mem read error");
             return;
@@ -73,10 +80,34 @@ pub fn dump_stack(uc: &mut Unicorn<()>, count: usize) {
     }
 }
 
+fn load_map(elf_file: String) -> HashMap<u32, String> {
+    let mut functions_hash_maps = HashMap::new();
+
+    let path = std::path::PathBuf::from(elf_file);
+    let file_data = std::fs::read(path).expect("Could not read file.");
+    let slice = file_data.as_slice();
+    let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Open test1");
+
+    let (symbol_table, string_table) = file.symbol_table().expect("failed parsing").expect("failed to get symbol table");
+
+    for symbol in symbol_table {
+        if symbol.st_shndx != 2 { continue; }
+        let s_name = string_table.get(symbol.st_name as usize).expect("could not get symbol name");
+        if s_name.contains("$") { continue; }
+        functions_hash_maps.insert(u32::try_from(symbol.st_value).expect("could not cast to u32") - 1, String::from(s_name));
+    }
+
+    //functions_hash_maps.keys().for_each(|addr| {
+    //   debug!("{:08x} : {}", addr, functions_hash_maps.get(addr).expect("error"))
+    //});
+    return functions_hash_maps;
+}
+
 pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result<()> {
     let mut uc = Unicorn::new(Arch::ARM, Mode::MCLASS | Mode::LITTLE_ENDIAN)
         .map_err(UniErr).context("Failed to initialize Unicorn instance")?;
 
+    let functions_map = load_map(config.debug.elf.clone());
     let vector_table_addr = config.cpu.vector_table;
 
     let (sys, framebuffers) = crate::system::prepare(&mut uc, config, svd_device)?;
@@ -110,6 +141,13 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
 
             if trace_instructions {
                 info!("{}", disassemble_instruction(&disassembler, uc, pc));
+            }
+
+            match functions_map.get(&(pc as u32)) {
+                None => {}
+                Some(symbol_name) => {
+                    debug!("----------------- {} ------------------", symbol_name);
+                }
             }
 
             if n % interrupt_period as u64 == 0 {
@@ -165,6 +203,7 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
                 }
                 3 => {
                     error!("intr_hook intno={:08x}", exception);
+                    std::process::exit(1);
                 }
                 _ => {
                     error!("intr_hook intno={:08x}", exception);

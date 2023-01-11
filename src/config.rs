@@ -23,8 +23,14 @@ pub struct Cpu {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct Debug {
+   pub elf: String
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Config {
    pub cpu: Cpu,
+   pub debug: Debug,
    pub regions: Vec<Region>,
    pub patches: Option<Vec<Patch>>,
    pub peripherals: Option<crate::peripherals::PeripheralsConfig>,

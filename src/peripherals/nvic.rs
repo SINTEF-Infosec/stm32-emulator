@@ -57,6 +57,7 @@ pub struct Nvic {
     // BusFault Address Register
     aircr: u32, // Application Interrupt and Reset Control Register
 
+    mpu_type: u32, // MPU Type Register
     mpu_ctrl: u32,
     // MPU Control Register
     mpu_rnr: u32,
@@ -73,6 +74,7 @@ pub struct Nvic {
 const IRQ_OFFSET: i32 = 16;
 
 pub mod irq {
+    pub const SVCall: i32 = -5;
     pub const PENDSV: i32 = -2;
     pub const SYSTICK: i32 = -1;
 }
@@ -105,6 +107,7 @@ impl Default for Nvic {
             mmfar: 0x0000_0000,
             bfar: 0x0000_0000,
             aircr: 0x000_0000,
+            mpu_type: 0x0000_0800,
             mpu_ctrl: 0x0000_0000,
             mpu_rnr: 0x0000_0000,
             mpu_rbar: 0x0000_0000,
@@ -412,6 +415,7 @@ impl Peripheral for Nvic {
             0xd2c => self.hfsr,
             0xd34 => self.mmfar,
             0xd38 => self.bfar,
+            0xd90 => self.mpu_type,
             0xd94 => self.mpu_ctrl,
             0xd98 => self.mpu_rnr,
             0xd9c => self.mpu_rbar,

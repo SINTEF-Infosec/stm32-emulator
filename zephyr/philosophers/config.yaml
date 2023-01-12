@@ -1,0 +1,41 @@
+cpu:
+  svd: STM32F41x.svd
+  vector_table: 0x08000000
+debug:
+  elf: zephyr.elf
+regions:
+  #- name: NULL_forgiveness
+  #  start: 0x00000000
+  #  size: 4096
+  - name: ROM
+    start: 0x08000000
+    load: zephyr.bin
+    size: 0x80000
+  - name: RAM-CCM
+    start: 0x10000000
+    size: 0xffff
+  - name: RAM
+    start: 0x20000000
+    size: 0x20000
+devices:
+  usart_probe:
+    - peripheral: USART2
+patches:
+  # go out of the RCC loop
+  #- start: 0x0802471a
+  #  data: [0x0, 0xbf]
+
+  # bypass a check
+  #- start: 0x08025e52
+  #  data: [0x1, 0x20]
+    
+  #- start: 0x08024ee2
+  #  data: [0x3, 0x28] # cmp r0 0x3
+  #- start: 0x08024eea
+  #  data: [0x1, 0x28] # cmp r0 0x1
+
+  # Skip putting the cpu in debug state (which makes unicorn fail)
+  #- start: 0x08010186
+  #  data: [0x0, 0xbf]
+  #- start: 0x08010188
+  #  data: [0x0, 0xbf]

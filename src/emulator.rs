@@ -16,6 +16,7 @@ use elf::note::NoteGnuBuildId;
 use elf::section::SectionHeader;
 use sdl2::video::FullscreenType::True;
 use crate::config::Debug;
+use crate::peripherals::nvic::irq;
 
 #[repr(C)]
 struct VectorTable {
@@ -167,6 +168,11 @@ pub fn run_emulator(config: Config, svd_device: SvdDevice, args: Args) -> Result
                         break;
                     }
                 }
+            }
+
+            if current_instruction.contains("svc") {
+                warn!("SuperVisor Call DETECTED!");
+                p.nvic.borrow_mut().set_intr_pending(irq::SVCall);
             }
 
             if n % interrupt_period as u64 == 0 {
